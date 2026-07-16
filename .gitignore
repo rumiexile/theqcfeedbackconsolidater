@@ -10,3 +10,11 @@ desktop.ini
 *.xlsx
 *.xlsm
 *.xls
+
+# Kurumsal fontlar — ticari lisanslı (Camber, DIN Pro); repoya konmaz.
+# Yerelde fonts/ klasöründe bulunmalıdır; yoksa sistem yazı tipine düşülür.
+fonts/
+*.ttf
+*.otf
+*.woff
+*.woff2

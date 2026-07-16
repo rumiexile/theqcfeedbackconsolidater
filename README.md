@@ -44,6 +44,20 @@ Anahtar yalnızca tarayıcıda (`localStorage`) saklanır, hiçbir sunucuya gön
 çağrılar doğrudan `api.anthropic.com` adresine yapılır. Model seçilebilir
 (varsayılan: Claude Sonnet 5).
 
+## Fontlar (kurumsal yazı tipleri)
+
+Uygulama **Camber** (birincil) ve **DIN Pro** (veri/etiket) kurumsal yazı tiplerini
+kullanır. Bu fontlar ticari lisanslı olduğundan **repoya dahil edilmez**; yerelde
+`fonts/` klasöründe bulunmaları beklenir:
+
+```
+fonts/CamberW04-Light.ttf   CamberW04-Regular.ttf   CamberW04-Medium.ttf   CamberW04-Bold.ttf
+fonts/DINPro-Regular.otf    DINPro-Medium.otf       DINPro-Bold.otf
+```
+
+Fontlar yoksa uygulama otomatik olarak sistem yazı tipine (Segoe UI / system-ui) düşer;
+işlevsellik etkilenmez, yalnızca tipografi değişir.
+
 ## Teknoloji
 
 - Vanilla JavaScript, tek `index.html`
