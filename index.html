@@ -170,11 +170,12 @@ button{font-family:inherit}
 .tree-ana>.ana-h{font-family:var(--font-data);text-transform:uppercase;letter-spacing:.08em;
   font-size:11px;font-weight:700;color:var(--blue-dark);padding:8px 8px 4px}
 .tree-alt{margin:2px 0}
-.alt-h{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius);
-  cursor:pointer;color:var(--text-body);font-weight:600;font-size:13.5px;transition:background .14s}
+.alt-h{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:var(--radius);
+  cursor:pointer;color:var(--text-body);font-weight:600;font-size:13.5px;line-height:1.4;transition:background .14s}
 .alt-h:hover{background:var(--surface-3)}
-.alt-h .code{font-family:var(--font-data);font-size:11.5px;color:var(--blue-mid);font-weight:700}
-.alt-h .chev{margin-left:auto;color:var(--text-faint);transition:transform .16s}
+.alt-h .code{font-family:var(--font-data);font-size:11.5px;color:var(--blue-mid);font-weight:700;flex:none;padding-top:1px}
+.alt-h .alt-title{flex:1;min-width:0}
+.alt-h .chev{color:var(--text-faint);transition:transform .16s;flex:none;padding-top:1px}
 .alt-h.open .chev{transform:rotate(90deg)}
 .ind-list{margin:0 0 4px 6px;border-left:2px solid var(--border);padding-left:6px}
 .ind-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius);
@@ -191,6 +192,15 @@ button{font-family:inherit}
 .crumbs{font-family:var(--font-data);font-size:12px;color:var(--text-muted);
   text-transform:uppercase;letter-spacing:.06em}
 .crumbs b{color:var(--blue-dark)}
+.context{margin-top:16px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface-2);padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+.ctx-row{display:flex;gap:14px;align-items:baseline}
+@media(max-width:640px){.ctx-row{flex-direction:column;gap:3px}}
+.ctx-lab{flex:none;width:86px;font-family:var(--font-data);text-transform:uppercase;
+  letter-spacing:.1em;font-size:10.5px;font-weight:700;color:var(--text-faint)}
+.ctx-val{flex:1;line-height:1.55;font-size:14.5px}
+.ctx-val .c-code{font-family:var(--font-data);font-weight:700;color:var(--blue-mid);margin-right:6px}
+.ctx-alt{font-weight:600;color:var(--ink)}
 .section-t{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .section-t h3{font-size:15px}
 .section-t .rule2{flex:1;height:1px;background:var(--border)}
@@ -287,6 +297,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.6}
 </style>
 </head>
 <body>
+
 
 <div class="appbar">
   <div class="appbar-inner">
@@ -642,13 +653,13 @@ function buildSidebar(){
   ));
   S.spine.ana.forEach((a,ai)=>{
     const anaBox=el("div",{class:"tree-ana"});
-    anaBox.append(el("div",{class:"ana-h"}, (a.code?a.code+". ":"")+shorten(stripCode(a.title),46)));
+    anaBox.append(el("div",{class:"ana-h",title:a.title}, (a.code?a.code+". ":"")+stripCode(a.title)));
     a.alts.forEach((al,li)=>{
       const open = al.inds.some(ind=>ind.code===S.currentCode);
       const indList=el("div",{class:"ind-list"+(open?"":" hidden")});
       al.inds.forEach(ind=>{
         const fin=S.finals[ind.code];
-        const item=el("div",{class:"ind-item"+(ind.code===S.currentCode?" active":""),onclick:()=>{S.currentCode=ind.code;render();}},
+        const item=el("div",{class:"ind-item"+(ind.code===S.currentCode?" active":""),title:ind.text,onclick:()=>{S.currentCode=ind.code;render();}},
           el("span",{class:"icode"},ind.code),
           el("span",{style:"flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"},shorten(ind.text,40)),
           fin&&fin.decision? el("span",{class:"ok-check",title:"Nihai: "+fin.decision},"✓") :
@@ -659,7 +670,7 @@ function buildSidebar(){
       const head=el("div",{class:"alt-h"+(open?" open":""),onclick:e=>{
         indList.classList.toggle("hidden"); head.classList.toggle("open");
       }},
-        el("span",{class:"code"},al.code), el("span",{},shorten(stripCode(al.title),30)),
+        el("span",{class:"code"},al.code), el("span",{class:"alt-title"},stripCode(al.title)),
         el("span",{class:"chev"},"▸"));
       anaBox.append(el("div",{class:"tree-alt"}, head, indList));
     });
@@ -681,16 +692,23 @@ function buildIndicatorPage(code){
 
   // başlık
   page.append(el("div",{class:"card card-pad"},
-    el("div",{class:"crumbs"}, (ana.code?ana.code+". ":"")+stripCode(shorten(ana.title,50))," › ",
-      el("b",{}, alt.code+" "), stripCode(shorten(alt.title,42))),
-    el("div",{class:"pagehead",style:"margin-top:10px"},
+    el("div",{class:"pagehead"},
       el("div",{style:"flex:1;min-width:0"},
         el("div",{class:"eyebrow"},"İNDİKATÖR "+ind.code),
         el("h2",{style:"margin-top:4px;font-size:19px;line-height:1.35"},"Değerlendirme"),
       ),
       finalPill(ind.code)
     ),
-    el("div",{class:"section-t",style:"margin-top:18px"},el("h3",{},"Mevcut İfade (Taslak)"),el("div",{class:"rule2"})),
+    // Tam bağlam: Ana ölçüt + Alt ölçüt (kısaltmasız)
+    el("div",{class:"context"},
+      el("div",{class:"ctx-row"},
+        el("span",{class:"ctx-lab"},"ANA ÖLÇÜT"),
+        el("div",{class:"ctx-val"}, ana.code? el("span",{class:"c-code"},ana.code+".") : null, stripCode(ana.title))),
+      el("div",{class:"ctx-row"},
+        el("span",{class:"ctx-lab"},"ALT ÖLÇÜT"),
+        el("div",{class:"ctx-val ctx-alt"}, alt.code? el("span",{class:"c-code"},alt.code+".") : null, stripCode(alt.title)))
+    ),
+    el("div",{class:"section-t",style:"margin-top:18px"},el("h3",{},"Mevcut İfade (Taslak) — İndikatör"),el("div",{class:"rule2"})),
     el("div",{class:"stmt"},ind.text||"—"),
     alt.evidence? el("details",{class:"evidence"},
         el("summary",{},"Beklenen kanıt örnekleri"),
