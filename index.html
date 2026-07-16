@@ -304,6 +304,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.6}
       <button data-view="dashboard">Genel Gösterge</button>
     </nav>
     <div class="appbar-spacer"></div>
+    <button class="btn btn-primary btn-sm" id="btn-export">Excel'e Aktar</button>
     <button class="btn btn-ghost btn-sm" id="btn-settings">Ayarlar</button>
     <button class="btn btn-secondary btn-sm" id="btn-reset">Sıfırla</button>
   </div>
@@ -911,8 +912,10 @@ function viewDashboard(){
   const allFb=[]; inds.forEach(x=>x.ind.feedback.forEach(f=>{ if(f.decision) allFb.push({...f,code:x.ind.code}); }));
   const done=Object.keys(S.finals).filter(c=>S.finals[c]&&S.finals[c].decision).length;
 
-  root.append(el("div",{},el("div",{class:"eyebrow"},"GENEL GÖSTERGE"),
-    el("h1",{},"Karar Dağılımı ve Paydaş Analizi"),el("div",{class:"rule"})));
+  root.append(el("div",{style:"display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap"},
+    el("div",{},el("div",{class:"eyebrow"},"GENEL GÖSTERGE"),
+      el("h1",{},"Karar Dağılımı ve Paydaş Analizi"),el("div",{class:"rule"})),
+    el("button",{class:"btn btn-gradient",onclick:exportExcel},"Yeni Ölçüt Setini Excel'e Aktar")));
 
   // KPI
   root.append(el("div",{class:"kpis"},
@@ -985,6 +988,87 @@ function kpi(lab,val,sub){
   return el("div",{class:"card kpi"}, el("div",{class:"k-lab"},lab), el("div",{class:"k-val"},String(val)), el("div",{class:"k-sub"},sub||""));
 }
 
+/* ============================================================
+   Excel dışa aktarım — yeni ölçüt seti + detay + özet
+   ============================================================ */
+function exportExcel(){
+  if(!S.spine || !allIndicators().length){ toast("Önce paydaş dosyalarını yükleyin."); return; }
+  const inds=allIndicators();
+  const dt=new Date().toISOString().slice(0,10);
+  const finalTextOf = (ind,f)=> (f && f.text && f.text.trim())? f.text.trim() : ind.text;
+
+  /* --- Sayfa 1: Yeni Ölçüt Seti (orijinal düzen, forward-fill) --- */
+  const s1=[["Ana ölçüt","Alt ölçüt","Alt ölçüte ilişkin indikatör (nihai)","Beklenen kanıt örnekleri","Nihai Karar","Değerlendirici Notu"]];
+  let pAna="", pAlt="";
+  S.spine.ana.forEach(a=>a.alts.forEach(al=>al.inds.forEach(ind=>{
+    const f=S.finals[ind.code]||{};
+    const anaCell = a.code!==pAna ? ((a.code?a.code+". ":"")+stripCode(a.title)) : "";
+    let altCell="", eviCell="";
+    if(al.code!==pAlt){ altCell=(al.code?al.code+". ":"")+stripCode(al.title); eviCell=al.evidence||""; }
+    s1.push([anaCell, altCell, finalTextOf(ind,f), eviCell, f.decision||"", f.note||""]);
+    pAna=a.code; pAlt=al.code;
+  })));
+
+  /* --- Sayfa 2: Değerlendirme Detayı --- */
+  const s2=[["İndikatör Kodu","Ana Ölçüt","Alt Ölçüt","Mevcut (Taslak) İfade","Nihai Karar","Nihai İfade","Karar Dağılımı","Paydaş Görüşleri","LLM Önerisi","Değerlendirici Notu"]];
+  inds.forEach(({ind,ana,alt})=>{
+    const f=S.finals[ind.code]||{};
+    const fbs=ind.feedback.filter(x=>x.decision||x.rationale||x.proposal);
+    const counts={}; fbs.forEach(x=>{const k=normDec(x.decision)||"(boş)";counts[k]=(counts[k]||0)+1;});
+    const dist=DECISIONS.filter(d=>counts[d.key]).map(d=>d.key+": "+counts[d.key]).join(" | ");
+    const views=fbs.map(x=>{
+      const st=stakeholder(x.sid);
+      let s=`• ${st?st.name:"?"} (${st?.type==="ic"?"iç":"dış"}) — Karar: ${normDec(x.decision)||"—"}`;
+      if(x.rationale) s+=`\n   Gerekçe: ${x.rationale}`;
+      if(x.proposal)  s+=`\n   Önerilen ifade: ${x.proposal}`;
+      return s;
+    }).join("\n");
+    s2.push([ind.code, (ana.code?ana.code+". ":"")+stripCode(ana.title),
+      (alt.code?alt.code+". ":"")+stripCode(alt.title), ind.text,
+      f.decision||"", finalTextOf(ind,f), dist, views, f.llm||"", f.note||""]);
+  });
+
+  /* --- Sayfa 3: Özet --- */
+  const allFb=[]; inds.forEach(x=>x.ind.feedback.forEach(fb=>{ if(fb.decision) allFb.push({...fb,code:x.ind.code}); }));
+  const done=Object.keys(S.finals).filter(c=>S.finals[c]&&S.finals[c].decision).length;
+  const ic=S.stakeholders.filter(s=>s.type==="ic").length, dis=S.stakeholders.filter(s=>s.type==="dis").length;
+  const s3=[
+    ["YÖKAK Paydaş Görüş Analizi — Özet"],
+    ["Oluşturma tarihi", dt],
+    [],
+    ["Toplam Ana ölçüt", S.spine.ana.length],
+    ["Toplam Alt ölçüt", S.spine.ana.reduce((n,a)=>n+a.alts.length,0)],
+    ["Toplam İndikatör", inds.length],
+    ["Paydaş sayısı", S.stakeholders.length, `iç: ${ic}`, `dış: ${dis}`],
+    ["Toplam görüş (karar içeren)", allFb.length],
+    ["Nihai karar verilen indikatör", done+" / "+inds.length],
+    [],
+    ["Paydaş × Karar Türü Matrisi"],
+    ["Paydaş","Tür", ...DECISIONS.map(d=>d.key), "Toplam"],
+  ];
+  S.stakeholders.slice().sort((a,b)=>a.type.localeCompare(b.type)||a.name.localeCompare(b.name,"tr")).forEach(st=>{
+    let tot=0; const cells=DECISIONS.map(d=>{
+      const n=allFb.filter(f=>f.sid===st.id && normDec(f.decision)===d.key).length; tot+=n; return n;
+    });
+    s3.push([st.name, st.type==="ic"?"İç":"Dış", ...cells, tot]);
+  });
+  const totCells=DECISIONS.map(d=>allFb.filter(f=>normDec(f.decision)===d.key).length);
+  s3.push(["GENEL TOPLAM","", ...totCells, allFb.length]);
+
+  /* --- Kitabı oluştur --- */
+  const wb=XLSX.utils.book_new();
+  const w1=XLSX.utils.aoa_to_sheet(s1); w1["!cols"]=[{wch:26},{wch:30},{wch:70},{wch:40},{wch:12},{wch:34}];
+  const w2=XLSX.utils.aoa_to_sheet(s2); w2["!cols"]=[{wch:11},{wch:24},{wch:26},{wch:55},{wch:12},{wch:55},{wch:22},{wch:60},{wch:50},{wch:30}];
+  const w3=XLSX.utils.aoa_to_sheet(s3); w3["!cols"]=[{wch:28},{wch:8},...DECISIONS.map(()=>({wch:11})),{wch:10}];
+  XLSX.utils.book_append_sheet(wb,w1,"Yeni Ölçüt Seti");
+  XLSX.utils.book_append_sheet(wb,w2,"Değerlendirme Detayı");
+  XLSX.utils.book_append_sheet(wb,w3,"Özet");
+  XLSX.writeFile(wb, `YOKAK_Yeni_Olcut_Seti_${dt}.xlsx`);
+
+  const pending=inds.length-done;
+  toast(pending>0 ? `Excel indirildi. Not: ${pending} indikatörde nihai karar henüz yok.` : "Excel indirildi.");
+}
+
 /* ---------- Ortak ---------- */
 function emptyState(title,desc,btn,fn){
   return el("div",{class:"card"},el("div",{class:"empty"},
@@ -1025,6 +1109,7 @@ function openSettings(note){
    Olaylar
    ============================================================ */
 $("#nav").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b) go(b.dataset.view); });
+$("#btn-export").addEventListener("click",exportExcel);
 $("#btn-settings").addEventListener("click",()=>openSettings());
 $("#btn-reset").addEventListener("click",()=>{
   const bg=el("div",{class:"modal-bg",onclick:e=>{if(e.target===bg)bg.remove();}});

@@ -19,6 +19,10 @@ Kurulum gerektirmez: [`index.html`](index.html) dosyasını bir tarayıcıda aç
 - **Genel gösterge:** KPI'lar, karar türü dağılımı, **Paydaş × Karar Türü matrisi**,
   Kabul dışı görüş içeren "dikkat gerektiren indikatörler" listesi.
 - Veriler ve kararlar tarayıcıda (`localStorage`) saklanır.
+- **Excel'e aktarım:** Gözden geçirme tamamlandığında tüm çıktı çok sayfalı bir
+  `.xlsx` olarak indirilir — **Yeni Ölçüt Seti** (orijinal düzende, nihai/revize
+  indikatör ifadeleri + kararlar), **Değerlendirme Detayı** (mevcut ifade, karar
+  dağılımı, tüm paydaş görüşleri, LLM önerisi, not) ve **Özet** (Paydaş × Karar matrisi).
 
 ## Karar türleri
 
